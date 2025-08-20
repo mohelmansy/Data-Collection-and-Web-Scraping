@@ -1,101 +1,152 @@
-Web Scraper Dashboard
+# Web Scraper Dashboard
 
-A lightweight, production-ready starter that combines a Tailwind CSS frontend with a FastAPI backend to scrape public websites and return normalized JSON you can explore in a table, filter, and export to CSV.
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111%2B-009688?logo=fastapi&logoColor=white)]()
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-UI-06B6D4?logo=tailwindcss&logoColor=white)]()
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)]()
 
-Frontend: static/index.html (Tailwind via CDN, no Node build needed)
+A lightweight, production-ready starter that pairs a **Tailwind CSS** frontend with a **FastAPI** backend to scrape public web pages and return normalized JSON you can browse, filter, and export to CSV. Includes domain-specific scrapers (Books/Quotes) and a universal fallback that extracts JSON-LD/OpenGraph/meta (so *any* URL returns useful items).
 
-Backend: app.py (FastAPI + Requests + BeautifulSoup + lxml)
+> **Ethics & Terms** — Only scrape content you are permitted to access. Respect robots.txt, site Terms of Service, and applicable laws.
 
-Modes: Site-specific scrapers (Books/Quotes) + a universal fallback (JSON‑LD, OpenGraph, and link-based extraction) so any URL returns useful items.
+---
 
-✨ Features
+## Table of Contents
 
-Universal URL support: Accepts any URL; tries domain-specific handlers first, then generic extraction.
+- [Features](#features)  
+- [Architecture](#architecture)  
+- [Repository Structure](#repository-structure)  
+- [Quickstart](#quickstart)  
+- [Frontend](#frontend)  
+- [API Reference](#api-reference)  
+- [Testing & Examples](#testing--examples)  
+- [Docker](#docker)  
+- [Troubleshooting](#troubleshooting)  
+- [Security & Legal](#security--legal)  
+- [Roadmap](#roadmap)  
+- [Contributing](#contributing)  
+- [License](#license)
 
-Structured data first: Parses JSON‑LD (application/ld+json) for Product/Article/ItemList when available.
+---
 
-Smart fallback: Uses OpenGraph/meta and content links (with price/rating heuristics) when structured data is absent.
+## Features
 
-Clean UI: Dark mode, inline filtering, quick stats, CSV export, graceful error states.
+- **Universal URL support** — Accepts any URL; runs domain-specific handlers first (Books/Quotes), then a robust generic extractor.
+- **Structured data first** — Parses **JSON-LD** (`application/ld+json`) for `Product`, `ItemList`, `Article`, etc.
+- **Smart fallbacks** — Uses **OpenGraph/meta** and content links (with price/rating heuristics) when structured data is absent.
+- **Clean UI** — Dark mode, inline filtering, quick stats, CSV export, and clear status feedback.
+- **Same-origin serving** — FastAPI serves the frontend, avoiding CORS headaches.
+- **Polite HTTP** — Retries, headers, and small delays to avoid hammering targets.
 
-Same-origin serving: FastAPI serves the frontend, avoiding CORS headaches.
+---
 
-Polite HTTP: Retries, headers, and small delays to avoid hammering targets.
+## Architecture
 
-⚠️ Ethics & Terms: Only scrape content you’re allowed to. Respect robots.txt, site Terms of Service, and legal constraints.
+```
+Browser (Tailwind UI)
+    │  enters URL, clicks "Scrape"
+    ▼
+FastAPI (/api/scrape?url=...)
+    ├─ books.toscrape.com handler (pagination, price/stock/rating)
+    ├─ quotes.toscrape.com handler (quote, author, tags)
+    └─ generic extractor
+         ├─ JSON-LD (Product/Article/ItemList)
+         ├─ OpenGraph/meta
+         └─ link-based extraction (main/article/content areas)
+    ▼
+Normalized JSON
+    └─ rendered in table + stats + CSV export
+```
 
-🧭 Repository Structure
+**Data model**
+```ts
+interface Item {
+  title: string;
+  price?: number;
+  stock?: number;
+  rating?: number;
+  product_url?: string;
+  category?: string;
+}
+```
+
+---
+
+## Repository Structure
+
+```
 project/
 ├─ app.py                 # FastAPI app (API, scrapers, static serving)
 ├─ static/
-│  └─ index.html          # Tailwind UI (no build step required)
-├─ requirements.txt       # (optional) dependencies pinning
-└─ README.md              # you are here
-🚀 Quickstart
-Prerequisites
+│  └─ index.html          # Tailwind UI (no Node build step required)
+├─ requirements.txt       # Dependencies
+└─ README.md              # This file
+```
 
-Python 3.10+ (3.11 recommended)
+---
 
-Install & Run
-# 1) Create/activate a virtualenv (recommended)
-python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
+## Quickstart
 
+### Prerequisites
+- Python **3.10+** (3.11 recommended)
+
+### Install & Run
+```bash
+# 1) (Optional) Use a virtual environment
+python -m venv .venv
+# Windows:
+# .venv\Scripts\activate
+# macOS/Linux:
+source .venv/bin/activate
 
 # 2) Install dependencies
-pip install fastapi uvicorn requests beautifulsoup4 lxml
+pip install -r requirements.txt
+# or
+pip install fastapi uvicorn[standard] requests beautifulsoup4 lxml
 
-
-# 3) Start the backend (also serves the frontend)
+# 3) Start backend (also serves the frontend)
 uvicorn app:app --reload --port 8000
 
-
 # 4) Open the UI
-# → http://127.0.0.1:8000
-Try it out
+# http://127.0.0.1:8000
+```
 
-In the input box, enter a URL and click Scrape:
+### Try it out
+Paste any of these into the input, then click **Scrape**:
+- `https://books.toscrape.com`
+- `http://quotes.toscrape.com`
+- `https://en.wikipedia.org/wiki/Web_scraping`
+- `https://news.ycombinator.com/`
 
-https://books.toscrape.com
+---
 
-http://quotes.toscrape.com
+## Frontend
 
-https://en.wikipedia.org/wiki/Web_scraping
+**File:** `static/index.html`  
+- Tailwind CDN (no build tooling)  
+- **Auto API detection**:
+  - Served via FastAPI → calls same-origin `/api/scrape`.
+  - Opened as `file://` → calls `http://127.0.0.1:8000/api/scrape`.  
+- UI:
+  - URL input, **Scrape** & **Use Demo Data**
+  - Status badge (current API base)
+  - Table with filter, **CSV download**, and summary stats
+  - Dark mode toggle
 
-https://news.ycombinator.com/
+> The page expects: `/api/scrape?url=<target>` → JSON array of `Item`.
 
-🖥️ Frontend (static/index.html)
+---
 
-Tailwind CDN (no build tooling required)
+## API Reference
 
-Auto API detection:
+### `GET /api/scrape?url=<target>`
+Returns an array of normalized items.
 
-If opened via FastAPI: calls same-origin /api/scrape.
+**Query Parameters**
+- `url` *(required)* — Any absolute URL (or host; `https://` assumed if missing)
 
-If opened as file://: calls http://127.0.0.1:8000/api/scrape.
-
-UI elements:
-
-URL input, Scrape and Use Demo Data buttons
-
-Status badge (shows API base)
-
-Table with inline filter, CSV download, and summary stats
-
-Dark mode toggle
-
-The page expects /api/scrape?url=<target> to return a JSON array of items.
-
-🔌 API Reference
-GET /api/scrape?url=<target>
-
-Returns an array of items with a consistent schema, regardless of source.
-
-Query Parameters
-
-url (string, required): Any absolute URL (or host; https:// will be assumed).
-
-Response (200)
-
+**200 Response (example)**
+```json
 [
   {
     "title": "A Light in the Attic",
@@ -106,72 +157,52 @@ Response (200)
     "category": "Poetry"
   }
 ]
+```
 
-Errors
+**Error Codes**
+- `400` — invalid/empty URL
+- `502` — target could not be scraped (unsupported upstream structure or failure)
+- `500` — unexpected server error
 
-400 – invalid or empty URL
+### `GET /healthz`
+Simple readiness probe. Responds with:
+```json
+{ "ok": true }
+```
 
-502 – cannot scrape target (upstream error or unsupported structure)
+---
 
-500 – unexpected server error
+## Testing & Examples
 
-GET /healthz
-
-Simple readiness probe.
-
-🧠 How It Works
-Selection strategy
-
-Domain-specific handlers (fast paths)
-
-books.toscrape.com: rich product fields + pagination
-
-quotes.toscrape.com: quote text, author, tags
-
-Generic extractor (fallback for everything else)
-
-Parse JSON‑LD blocks (Product, ItemList, Article, etc.)
-
-Read OpenGraph/meta tags
-
-Build items from content links in <main>, <article>, .content, etc., guessing prices/ratings when present
-
-Data model
-interface Item {
-  title: string;
-  price?: number;       // when detectable
-  stock?: number;       // when detectable
-  rating?: number;      // when detectable (e.g., 4.5/5)
-  product_url?: string; // canonical or link target
-  category?: string;    // category/section/host
-}
-🧪 Testing & Examples
+```bash
 # Health
 curl http://127.0.0.1:8000/healthz
-
 
 # Books (pagination)
 curl "http://127.0.0.1:8000/api/scrape?url=https://books.toscrape.com"
 
-
 # Quotes
 curl "http://127.0.0.1:8000/api/scrape?url=http://quotes.toscrape.com"
 
-
 # Wikipedia article
 curl "http://127.0.0.1:8000/api/scrape?url=https://en.wikipedia.org/wiki/Web_scraping"
-🐳 Docker (optional)
+```
 
-Create requirements.txt:
+---
 
+## Docker
+
+**requirements.txt**
+```
 fastapi
 uvicorn[standard]
 requests
 beautifulsoup4
 lxml
+```
 
-Dockerfile:
-
+**Dockerfile**
+```dockerfile
 FROM python:3.11-slim
 WORKDIR /app
 COPY requirements.txt ./
@@ -180,69 +211,58 @@ COPY . .
 ENV PORT=8000
 EXPOSE 8000
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+```
 
-Build & run:
-
+**Build & Run**
+```bash
 docker build -t scraper-dashboard .
 docker run --rm -p 8000:8000 scraper-dashboard
-🔐 Security, Legal & Performance
+```
 
-Respect robots.txt & ToS: Only scrape where permitted.
+---
 
-Rate limiting: Be gentle; the sample code includes small delays.
+## Troubleshooting
 
-PII: Do not collect/store personal data without explicit consent and lawful basis.
+- **“Could not reach the backend”**
+  - Ensure server is running: `uvicorn app:app --reload --port 8000`
+  - Check `http://127.0.0.1:8000/healthz` → should return `{ "ok": true }`
+  - If you previously mounted static at `/`, it may shadow `/api/*`. In this setup, static is served at `/static`, and `/` returns `index.html`.
+- **CORS**
+  - When serving the UI from FastAPI (same origin), CORS isn’t an issue.
+  - If hosting elsewhere, update `CORSMiddleware` to allow your origin.
+- **Firewall prompts (Windows/macOS)**
+  - Allow Python to accept local connections on first run.
 
-Dynamic sites: Some pages render via JS; consider Playwright for those.
+---
 
-🛠️ Troubleshooting
+## Security & Legal
 
-Message: “Could not reach the backend”
+- Respect **robots.txt** and **Terms of Service**
+- Rate-limit requests and avoid heavy loads
+- Avoid collecting **PII** without lawful basis
+- For JS-heavy SPAs, consider **Playwright** (optional extension)
 
-Ensure the server is running: uvicorn app:app --reload --port 8000
+---
 
-Open http://127.0.0.1:8000/healthz → should return { "ok": true }
+## Roadmap
 
-If you previously mounted static at /, your /api routes may have been shadowed. In this repo we serve static at /static and return index.html from /.
+- Optional Playwright integration for dynamic sites
+- Domain profiles (Amazon/eBay/OpenLibrary/Wikipedia tables)
+- Configurable rate limits & caching
+- Export to JSON/Parquet
+- Test suite
 
-CORS errors
+---
 
-When serving frontend from FastAPI (same origin), CORS shouldn’t trigger.
+## Contributing
 
-If you host the UI elsewhere, adjust CORSMiddleware to whitelist your origin.
+Contributions are welcome:
+1. Open an issue describing the change/bug.
+2. Provide clear reproduction steps or a concise proposal.
+3. Match code style and add tests where reasonable.
 
-Firewall prompts (Windows/macOS)
+---
 
-Allow Python to accept local connections on first run.
+## License
 
-🧭 Roadmap
-
-Optional Playwright integration for JS-heavy SPAs
-
-Per-domain parsers (Amazon/eBay/OpenLibrary/Wikipedia tables)
-
-Configurable rate limits & caching
-
-Export to JSON/Parquet
-
-Minimal test suite
-
-🤝 Contributing
-
-Issues and PRs are welcome! Please:
-
-Open an issue describing the change/bug.
-
-Include clear steps to reproduce or a concise proposal.
-
-Keep code style consistent and add tests where possible.
-
-🙏 Acknowledgments
-
-Books to Scrape & Quotes to Scrape (public demo sites for training/practice)
-
-FastAPI, Requests, BeautifulSoup, lxml, Tailwind CSS
-
-📄 License
-
-This project is licensed under the MIT License. See LICENSE for details.
+This project is released under the **MIT License**. See `LICENSE` for details.
